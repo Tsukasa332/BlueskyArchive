@@ -1,8 +1,10 @@
 import type { FriendSummary, HashtagSummary } from './api';
 import type { DayItem, MonthItem, Selection } from './archive';
-import { formatDayLabel, sameSelection, WEEKDAYS } from './archive';
+import { formatDayLabel, formatMonthLabel, sameSelection, WEEKDAYS } from './archive';
+import type { Language } from './i18n';
 
 type ArchiveSidebarProps = {
+  language: Language;
   selected: Selection;
   selectedMonth?: { year: number; month: number };
   grid: ({ day: number; count: number } | null)[];
@@ -28,6 +30,7 @@ type ArchiveSidebarProps = {
 
 export function ArchiveSidebar(props: ArchiveSidebarProps) {
   const {
+    language,
     selected,
     selectedMonth,
     grid,
@@ -57,12 +60,12 @@ export function ArchiveSidebar(props: ArchiveSidebarProps) {
           <button disabled={!selectedMonth} onClick={() => selectedMonth && onChooseMonth(selectedMonth.month === 1 ? selectedMonth.year - 1 : selectedMonth.year, selectedMonth.month === 1 ? 12 : selectedMonth.month - 1)}>‹</button>
           {selectedMonth ? (
             <button className="calendar-month-link" onClick={() => onChooseMonth(selectedMonth.year, selectedMonth.month)}>
-              {selectedMonth.year}年{String(selectedMonth.month).padStart(2, '0')}月
+              {formatMonthLabel(selectedMonth.year, selectedMonth.month, language)}
             </button>
           ) : <strong>Calendar</strong>}
           <button disabled={!selectedMonth} onClick={() => selectedMonth && onChooseMonth(selectedMonth.month === 12 ? selectedMonth.year + 1 : selectedMonth.year, selectedMonth.month === 12 ? 1 : selectedMonth.month + 1)}>›</button>
         </div>
-        <div className="weekdays">{WEEKDAYS.map((item) => <span key={item}>{item}</span>)}</div>
+        <div className="weekdays">{WEEKDAYS[language].map((item) => <span key={item}>{item}</span>)}</div>
         <div className="calendar-grid">
           {grid.map((cell, index) => cell ? (
             <button
@@ -81,7 +84,7 @@ export function ArchiveSidebar(props: ArchiveSidebarProps) {
         <h2>Recent</h2>
         {recentDays.map((item) => (
           <button className="row-link" key={item.date} onClick={() => onChooseDay(item.date)}>
-            <span>{formatDayLabel(item.date).replace(/^\d{4}年/, '')}</span>
+            <span>{formatDayLabel(item.date, language, false)}</span>
             <strong>{item.count}</strong>
           </button>
         ))}
@@ -123,13 +126,15 @@ export function ArchiveSidebar(props: ArchiveSidebarProps) {
         <h2>Archives</h2>
         {archives.map((item) => (
           <button className="row-link" key={`${item.year}-${item.month}`} onClick={() => onChooseMonth(item.year, item.month)}>
-            <span>{item.year}年{String(item.month).padStart(2, '0')}月</span>
+            <span>{formatMonthLabel(item.year, item.month, language)}</span>
             <strong>{item.count}</strong>
           </button>
         ))}
         {hasMoreArchives && (
           <button className="row-link more-link" onClick={onToggleAllArchives}>
-            <span>{showAllArchives ? '折りたたむ' : '全て表示 »'}</span>
+            <span>{showAllArchives
+              ? (language === 'ja' ? '折りたたむ' : 'Collapse')
+              : (language === 'ja' ? '全て表示 »' : 'Show all »')}</span>
           </button>
         )}
       </section>}

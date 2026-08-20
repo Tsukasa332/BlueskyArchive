@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 
 import type { Actor, Caption, EmbeddedRecord, ExternalLink, HashtagFacet, TimelineItem } from './api';
+import type { Language } from './i18n';
 import {
   actorName,
   blueskyPostUrl,
@@ -16,15 +17,16 @@ type TimelineCardProps = {
   showRecordIds: boolean;
   linkActorNames: boolean;
   blurSensitiveMedia: boolean;
+  language: Language;
   nowMs: number;
   onHashtag: (tag: string) => void;
 };
 
-function LinkedPostImage({ src, alt, postUri }: { src: string; alt: string; postUri: string }) {
+function LinkedPostImage({ src, alt, postUri, language }: { src: string; alt: string; postUri: string; language: Language }) {
   const postUrl = blueskyPostUrl(postUri);
   const image = <img src={src} alt={alt} />;
   return postUrl ? (
-    <a className="media-link" href={postUrl} target="_blank" rel="noreferrer" title="Blueskyで元ポストを開く">
+    <a className="media-link" href={postUrl} target="_blank" rel="noreferrer" title={language === 'ja' ? 'Blueskyで元ポストを開く' : 'Open the original post on Bluesky'}>
       {image}
     </a>
   ) : image;
@@ -57,11 +59,13 @@ function ActorLabel({
   fallback = 'unknown',
   suffix,
   linkNames,
+  language,
 }: {
   actor?: Actor | null;
   fallback?: string;
   suffix?: React.ReactNode;
   linkNames: boolean;
+  language: Language;
 }) {
   const identifier = actor?.handle || actor?.did || fallback;
   const displayName = actor?.display_name?.trim();
@@ -77,7 +81,7 @@ function ActorLabel({
     <>
       {displayName && <span className="actor-display-name">{displayName}</span>}
       <span className="actor-name">@{identifier}</span>
-      {actor?.is_followed && <span className="follow-badge" title="following" aria-label="following">✓</span>}
+      {actor?.is_followed && <span className="follow-badge" title={language === 'ja' ? 'フォロー中' : 'following'} aria-label={language === 'ja' ? 'フォロー中' : 'following'}>✓</span>}
     </>
   );
   return (
@@ -186,12 +190,12 @@ function StandaloneHashtags({
   );
 }
 
-function LinkCard({ link }: { link: ExternalLink }) {
+function LinkCard({ link, language }: { link: ExternalLink; language: Language }) {
   const href = safeHttpUrl(link.uri);
   const details = [
     link.source?.title,
-    link.reading_time ? `読了 ${link.reading_time}分` : null,
-    link.created_at ? formatDateTime(link.created_at) : null,
+    link.reading_time ? (language === 'ja' ? `読了 ${link.reading_time}分` : `${link.reading_time} min read`) : null,
+    link.created_at ? formatDateTime(link.created_at, language) : null,
   ].filter(Boolean).join(' · ');
   const content = (
     <>
@@ -268,20 +272,22 @@ function SensitiveMedia({
   blurred,
   onReveal,
   children,
+  language,
 }: {
   blurred: boolean;
   onReveal: () => void;
   children: React.ReactNode;
+  language: Language;
 }) {
   return (
     <div className={blurred ? 'sensitive-media is-blurred' : 'sensitive-media'}>
       {children}
-      {blurred && <button className="sensitive-reveal" onClick={onReveal}>センシティブなメディアを表示</button>}
+      {blurred && <button className="sensitive-reveal" onClick={onReveal}>{language === 'ja' ? 'センシティブなメディアを表示' : 'Show sensitive media'}</button>}
     </div>
   );
 }
 
-export function TimelineCard({ item, showRecordIds, linkActorNames, blurSensitiveMedia, nowMs, onHashtag }: TimelineCardProps) {
+export function TimelineCard({ item, showRecordIds, linkActorNames, blurSensitiveMedia, language, nowMs, onHashtag }: TimelineCardProps) {
   const [sensitiveRevealed, setSensitiveRevealed] = useState(false);
   if (item.kind === 'repost') {
     const repost = item.repost;
@@ -293,19 +299,19 @@ export function TimelineCard({ item, showRecordIds, linkActorNames, blurSensitiv
       <article className={repost.deleted ? 'post repost deleted' : 'post repost'}>
         <div className="post-context">
           <span className="post-context-arrow" aria-hidden="true">{'↻\uFE0E'}</span>
-          <span className="post-context-label">repost</span>
+          <span className="post-context-label">{language === 'ja' ? 'リポスト' : 'repost'}</span>
         </div>
         <div className="post-meta">
-          <ActorLabel actor={repost.subject_author} fallback={subjectAuthor || 'unknown'} linkNames={linkActorNames} />
-          <time className="post-age" dateTime={displayTime || undefined} title={formatDateTime(displayTime)}>
-            {formatPostAge(displayTime, nowMs)}
+          <ActorLabel actor={repost.subject_author} fallback={subjectAuthor || (language === 'ja' ? '不明' : 'unknown')} linkNames={linkActorNames} language={language} />
+          <time className="post-age" dateTime={displayTime || undefined} title={formatDateTime(displayTime, language)}>
+            {formatPostAge(displayTime, nowMs, language)}
           </time>
         </div>
         {repost.subject_text && <p>{renderText(repost.subject_text, repost.subject_hashtags, onHashtag)}</p>}
         <StandaloneHashtags hashtags={repost.subject_hashtags} onHashtag={onHashtag} />
         {repost.subject_external_links?.length > 0 && (
           <div className="link-cards">
-            {repost.subject_external_links.map((link) => <LinkCard key={link.uri} link={link} />)}
+            {repost.subject_external_links.map((link) => <LinkCard key={link.uri} link={link} language={language} />)}
           </div>
         )}
         {repost.subject_embedded_records?.length > 0 && (
@@ -314,7 +320,7 @@ export function TimelineCard({ item, showRecordIds, linkActorNames, blurSensitiv
           </div>
         )}
         {repost.subject_media?.length > 0 && (
-          <SensitiveMedia blurred={blurMedia} onReveal={() => setSensitiveRevealed(true)}>
+          <SensitiveMedia blurred={blurMedia} onReveal={() => setSensitiveRevealed(true)} language={language}>
             <div className="media">
               {repost.subject_media.map((media) => {
                 const mediaUrl = safeMediaUrl(media.url);
@@ -322,7 +328,7 @@ export function TimelineCard({ item, showRecordIds, linkActorNames, blurSensitiv
                 if (!mediaUrl) return null;
                 return media.media_type === 'video'
                   ? <VideoMedia key={media.url} src={mediaUrl} poster={thumbUrl} presentation={media.presentation} captions={media.captions} />
-                  : <LinkedPostImage key={media.url} src={mediaUrl} alt={media.alt_text || ''} postUri={repost.subject_uri} />;
+                  : <LinkedPostImage key={media.url} src={mediaUrl} alt={media.alt_text || ''} postUri={repost.subject_uri} language={language} />;
               })}
             </div>
           </SensitiveMedia>
@@ -335,8 +341,8 @@ export function TimelineCard({ item, showRecordIds, linkActorNames, blurSensitiv
         )}
         <div className="post-timestamp">
           {subjectUrl
-            ? <a href={subjectUrl} target="_blank" rel="noreferrer">{formatDateTime(displayTime)}</a>
-            : <time>{formatDateTime(displayTime)}</time>}
+            ? <a href={subjectUrl} target="_blank" rel="noreferrer">{formatDateTime(displayTime, language)}</a>
+            : <time>{formatDateTime(displayTime, language)}</time>}
         </div>
       </article>
     );
@@ -350,24 +356,25 @@ export function TimelineCard({ item, showRecordIds, linkActorNames, blurSensitiv
       {post.reply_parent_uri && (
         <div className="post-context">
           <span className="post-context-arrow" aria-hidden="true">{'↶\uFE0E'}</span>
-          <span className="post-context-label">reply @{actorName(post.reply_parent_author) || uriTail(post.reply_parent_uri)}</span>
+          <span className="post-context-label">{language === 'ja' ? '返信' : 'reply'} @{actorName(post.reply_parent_author) || uriTail(post.reply_parent_uri)}</span>
         </div>
       )}
       <div className="post-meta">
         <ActorLabel
           actor={post.author}
           linkNames={linkActorNames}
-          suffix={post.deleted ? <span className="deleted-badge">削除済</span> : undefined}
+          language={language}
+          suffix={post.deleted ? <span className="deleted-badge">{language === 'ja' ? '削除済' : 'deleted'}</span> : undefined}
         />
-        <time className="post-age" dateTime={post.record_created_at || undefined} title={formatDateTime(post.record_created_at)}>
-          {formatPostAge(post.record_created_at, nowMs)}
+        <time className="post-age" dateTime={post.record_created_at || undefined} title={formatDateTime(post.record_created_at, language)}>
+          {formatPostAge(post.record_created_at, nowMs, language)}
         </time>
       </div>
       <p>{renderText(post.text, post.hashtags, onHashtag)}</p>
       <StandaloneHashtags hashtags={post.hashtags} onHashtag={onHashtag} />
       {post.external_links?.length > 0 && (
         <div className="link-cards">
-          {post.external_links.map((link) => <LinkCard key={link.uri} link={link} />)}
+          {post.external_links.map((link) => <LinkCard key={link.uri} link={link} language={language} />)}
         </div>
       )}
       {post.embedded_records?.length > 0 && (
@@ -376,28 +383,28 @@ export function TimelineCard({ item, showRecordIds, linkActorNames, blurSensitiv
         </div>
       )}
       {post.media.length > 0 && (
-        <SensitiveMedia blurred={blurMedia} onReveal={() => setSensitiveRevealed(true)}>
+        <SensitiveMedia blurred={blurMedia} onReveal={() => setSensitiveRevealed(true)} language={language}>
           <div className="media">
             {post.media.map((media) => {
               const mediaUrl = safeMediaUrl(media.path);
               if (!mediaUrl) return null;
               return media.media_type === 'video'
                 ? <VideoMedia key={media.cid} src={mediaUrl} presentation={media.presentation} captions={media.captions} />
-                : <LinkedPostImage key={media.cid} src={mediaUrl} alt={media.alt_text || ''} postUri={post.uri} />;
+                : <LinkedPostImage key={media.cid} src={mediaUrl} alt={media.alt_text || ''} postUri={post.uri} language={language} />;
             })}
           </div>
         </SensitiveMedia>
       )}
       {(post.quote_uri || showRecordIds) && (
         <div className="post-links">
-          {post.quote_uri && <span>quote @{actorName(post.quote_author) || uriTail(post.quote_uri)}</span>}
+          {post.quote_uri && <span>{language === 'ja' ? '引用' : 'quote'} @{actorName(post.quote_author) || uriTail(post.quote_uri)}</span>}
           {showRecordIds && <RecordChip uri={post.uri} />}
         </div>
       )}
       <div className="post-timestamp">
         {postUrl
-          ? <a href={postUrl} target="_blank" rel="noreferrer">{formatDateTime(post.record_created_at)}</a>
-          : <time>{formatDateTime(post.record_created_at)}</time>}
+          ? <a href={postUrl} target="_blank" rel="noreferrer">{formatDateTime(post.record_created_at, language)}</a>
+          : <time>{formatDateTime(post.record_created_at, language)}</time>}
       </div>
     </article>
   );

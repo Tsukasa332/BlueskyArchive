@@ -1,4 +1,6 @@
 import type { Actor } from './api';
+import { localeFor } from './i18n';
+import type { Language } from './i18n';
 
 export type YearItem = { year: number; count: number };
 export type MonthItem = { year: number; month: number; count: number };
@@ -12,13 +14,17 @@ export type RouteState =
   | { kind: 'tag'; tag: string; page?: number }
   | { kind: 'friend'; did: string; page?: number };
 
-export const WEEKDAYS = ['日', '月', '火', '水', '木', '金', '土'];
+export const UNDATED_KEY = '__undated__';
+export const WEEKDAYS: Record<Language, string[]> = {
+  en: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+  ja: ['日', '月', '火', '水', '木', '金', '土'],
+};
 export const PAGE_SIZE = 300;
 export const LATEST_PAGE_SIZE = 50;
 
-export function formatDateTime(value?: string | null) {
+export function formatDateTime(value?: string | null, language: Language = 'en') {
   if (!value) return '';
-  return new Intl.DateTimeFormat('ja-JP', {
+  return new Intl.DateTimeFormat(localeFor(language), {
     month: '2-digit',
     day: '2-digit',
     hour: '2-digit',
@@ -27,16 +33,19 @@ export function formatDateTime(value?: string | null) {
   }).format(new Date(value));
 }
 
-export function formatPostAge(value?: string | null, nowMs = Date.now()) {
+export function formatPostAge(value?: string | null, nowMs = Date.now(), language: Language = 'en') {
   if (!value) return '';
   const postedAt = new Date(value);
   const postedAtMs = postedAt.getTime();
   if (!Number.isFinite(postedAtMs)) return '';
 
   const elapsedMinutes = Math.max(0, Math.floor((nowMs - postedAtMs) / 60_000));
-  if (elapsedMinutes < 60) return `${elapsedMinutes}分前`;
-  if (elapsedMinutes < 24 * 60) return `${Math.floor(elapsedMinutes / 60)}時間前`;
-  return new Intl.DateTimeFormat('ja-JP', {
+  if (elapsedMinutes < 60) return language === 'ja' ? `${elapsedMinutes}分前` : `${elapsedMinutes}m ago`;
+  if (elapsedMinutes < 24 * 60) {
+    const hours = Math.floor(elapsedMinutes / 60);
+    return language === 'ja' ? `${hours}時間前` : `${hours}h ago`;
+  }
+  return new Intl.DateTimeFormat(localeFor(language), {
     month: '2-digit',
     day: '2-digit',
     timeZone: 'Asia/Tokyo',
@@ -44,7 +53,7 @@ export function formatPostAge(value?: string | null, nowMs = Date.now()) {
 }
 
 export function localDateKey(value?: string | null) {
-  if (!value) return '日付なし';
+  if (!value) return UNDATED_KEY;
   const parts = new Intl.DateTimeFormat('sv-SE', {
     year: 'numeric',
     month: '2-digit',
@@ -55,21 +64,37 @@ export function localDateKey(value?: string | null) {
   return `${byType.get('year')}-${byType.get('month')}-${byType.get('day')}`;
 }
 
-export function formatDayLabel(dateText: string) {
+export function formatDayLabel(dateText: string, language: Language = 'en', includeYear = true) {
   const date = new Date(dateText + 'T00:00:00+09:00');
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
-  return `${year}年${month}月${day}日(${WEEKDAYS[date.getDay()]})`;
+  if (language === 'ja') {
+    return `${includeYear ? `${year}年` : ''}${month}月${day}日(${WEEKDAYS.ja[date.getDay()]})`;
+  }
+  return new Intl.DateTimeFormat('en-US', {
+    ...(includeYear ? { year: 'numeric' as const } : {}),
+    month: 'short',
+    day: '2-digit',
+    weekday: 'short',
+    timeZone: 'Asia/Tokyo',
+  }).format(date);
 }
 
-export function selectedLabel(selected: Selection) {
+export function formatMonthLabel(year: number, month: number, language: Language = 'en') {
+  return language === 'ja'
+    ? `${year}年${String(month).padStart(2, '0')}月`
+    : new Intl.DateTimeFormat('en-US', { year: 'numeric', month: 'long', timeZone: 'Asia/Tokyo' })
+      .format(new Date(`${year}-${String(month).padStart(2, '0')}-01T00:00:00+09:00`));
+}
+
+export function selectedLabel(selected: Selection, language: Language = 'en') {
   if (selected.year && selected.month && selected.day) {
-    return `${selected.year}年${String(selected.month).padStart(2, '0')}月${String(selected.day).padStart(2, '0')}日`;
+    return formatDayLabel(`${selected.year}-${String(selected.month).padStart(2, '0')}-${String(selected.day).padStart(2, '0')}`, language);
   }
-  if (selected.year && selected.month) return `${selected.year}年${String(selected.month).padStart(2, '0')}月`;
-  if (selected.year) return `${selected.year}年`;
-  return '最新の投稿';
+  if (selected.year && selected.month) return formatMonthLabel(selected.year, selected.month, language);
+  if (selected.year) return language === 'ja' ? `${selected.year}年` : String(selected.year);
+  return language === 'ja' ? '最新の投稿' : 'Latest posts';
 }
 
 export function uriTail(uri: string) {

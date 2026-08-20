@@ -20,7 +20,9 @@ import {
   shiftDate,
   shiftMonth,
 } from './archive';
+import { UNDATED_KEY } from './archive';
 import type { DayItem, MonthItem, RouteState, Selection, YearItem } from './archive';
+import { UI_COPY } from './i18n';
 import { loadSettings, saveSettings } from './settings';
 import type { AppSettings } from './settings';
 import './styles.css';
@@ -92,6 +94,12 @@ function App() {
   const [syncing, setSyncing] = useState(false);
   const [page, setPage] = useState(1);
   const [timelineNowMs, setTimelineNowMs] = useState(() => Date.now());
+  const language = settings.language;
+  const copy = UI_COPY[language];
+
+  useEffect(() => {
+    document.documentElement.lang = language;
+  }, [language]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setTimelineNowMs(Date.now()), 60_000);
@@ -120,7 +128,7 @@ function App() {
         const [allMonths] = await Promise.all([reloadArchives(), reloadNavigation()]);
         await loadRoute(parseRoute(), false, allMonths, showDeleted);
       } catch (err) {
-        setError(err instanceof Error ? err.message : '読み込みに失敗しました');
+        setError(err instanceof Error ? err.message : UI_COPY[settingsRef.current.language].loadFailed);
       } finally {
         setLoading(false);
       }
@@ -144,7 +152,7 @@ function App() {
       setLoading(true);
       reloadArchives()
         .then((allMonths) => loadRoute(parseRoute(), false, allMonths, settingsRef.current.showDeleted, sortOrderRef.current))
-        .catch((err) => setError(err instanceof Error ? err.message : '読み込みに失敗しました'))
+        .catch((err) => setError(err instanceof Error ? err.message : UI_COPY[settingsRef.current.language].loadFailed))
         .finally(() => setLoading(false));
     }
 
@@ -395,20 +403,20 @@ function App() {
         const status = await getSyncStatus();
         const latestRun = status.latest_run;
         if (latestRun?.status === 'error' && latestRun.started_at && new Date(latestRun.started_at).getTime() >= new Date(request.requested_at).getTime()) {
-          throw new Error(latestRun.error_message || '同期に失敗しました');
+          throw new Error(latestRun.error_message || copy.syncFailed);
         }
         const consumed = status.consumed_at === request.requested_at;
         if (consumed && latestRun?.status !== 'running') {
-          if (latestRun?.status === 'error') throw new Error(latestRun.error_message || '同期に失敗しました');
+          if (latestRun?.status === 'error') throw new Error(latestRun.error_message || copy.syncFailed);
           completed = true;
           break;
         }
       }
-      if (!completed) throw new Error('同期が30分以内に完了しませんでした。Fetcherのログを確認してください');
+      if (!completed) throw new Error(copy.syncTimeout);
       const [allMonths] = await Promise.all([reloadArchives(), reloadNavigation()]);
       await loadRoute(parseRoute(), false, allMonths, showDeleted);
     } catch (err) {
-      setError(err instanceof Error ? err.message : '更新に失敗しました');
+      setError(err instanceof Error ? err.message : copy.refreshFailed);
     } finally {
       setSyncing(false);
       setLoading(false);
@@ -451,12 +459,12 @@ function App() {
     ? currentFriend?.actor.display_name || currentFriend?.actor.handle || currentRoute.did
     : '';
   const currentLabel = currentRoute.kind === 'friend'
-    ? `${currentFriendName} へのリプライ`
+    ? copy.replyResults(currentFriendName)
     : currentRoute.kind === 'tag'
-      ? `#${currentRoute.tag} の検索結果`
+      ? copy.tagResults(currentRoute.tag)
       : currentRoute.kind === 'search'
-        ? `「${currentRoute.q}」の検索結果`
-        : selectedLabel(selected);
+        ? copy.textResults(currentRoute.q)
+        : selectedLabel(selected, language);
   const currentPageSize = currentRoute.kind === 'latest' ? LATEST_PAGE_SIZE : PAGE_SIZE;
   const totalPages = Math.max(1, Math.ceil(total / currentPageSize));
   const prevMonth = selected.year && selected.month ? shiftMonth(selected.year, selected.month, -1) : null;
@@ -470,16 +478,20 @@ function App() {
           BlueskyArchive
         </a>
         {view !== 'archive' ? (
-          <button className="back-button" onClick={closeSecondary}>アーカイブに戻る</button>
+          <div className="top-actions">
+            <button className="language-button" onClick={() => changeSettings({ ...settings, language: language === 'en' ? 'ja' : 'en' })} aria-label={copy.switchLanguage}>{copy.languageButton}</button>
+            <button className="back-button" onClick={closeSecondary}>{copy.backToArchive}</button>
+          </div>
         ) : (
           <div className="top-actions">
-            <button className="analytics-button" onClick={() => openSecondary('analytics')} aria-label="分析を開く">分析</button>
-            <button className="settings-button" onClick={() => openSecondary('config')} aria-label="設定を開く">設定</button>
+            <button className="language-button" onClick={() => changeSettings({ ...settings, language: language === 'en' ? 'ja' : 'en' })} aria-label={copy.switchLanguage}>{copy.languageButton}</button>
+            <button className="analytics-button" onClick={() => openSecondary('analytics')} aria-label={copy.openAnalytics}>{copy.analytics}</button>
+            <button className="settings-button" onClick={() => openSecondary('config')} aria-label={copy.openSettings}>{copy.settings}</button>
             <form className="top-search" onSubmit={search}>
-              <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="投稿を検索" />
-              <button>検索</button>
+              <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={copy.searchPlaceholder} />
+              <button>{copy.search}</button>
             </form>
-            <button className="refresh-button" onClick={refreshCurrent} disabled={loading || syncing}>{syncing ? '同期中' : '更新'}</button>
+            <button className="refresh-button" onClick={refreshCurrent} disabled={loading || syncing}>{syncing ? copy.syncing : copy.refresh}</button>
           </div>
         )}
       </header>
@@ -487,7 +499,7 @@ function App() {
       {view === 'config' ? (
         <ConfigPage settings={settings} onChange={changeSettings} />
       ) : view === 'analytics' ? (
-        <AnalyticsPage />
+        <AnalyticsPage language={language} />
       ) : (
         <section className="shell">
         <section className="content">
@@ -495,7 +507,7 @@ function App() {
             <div>
               <div className="avatar">B</div>
               <h1>Personal BlueskyArchive</h1>
-              <p>ローカルに保存した自分用Blueskyログ</p>
+              <p>{copy.profileDescription}</p>
             </div>
             <div className="stats">
               <span><strong>{itemCount.toLocaleString()}</strong> items</span>
@@ -504,21 +516,21 @@ function App() {
             </div>
           </section>
 
-          <nav className="filters" aria-label="投稿の表示設定">
+          <nav className="filters" aria-label={copy.postDisplaySettings}>
             <div className="filter-row">
-              <span className="filter-label">ポストの並び順：</span>
+              <span className="filter-label">{copy.sortOrder}</span>
               <div className="filter-options">
-                <button className={sortOrder === 'desc' ? 'active' : ''} onClick={() => changeSortOrder('desc')}>通常</button>
-                <button className={sortOrder === 'day_asc' ? 'active' : ''} onClick={() => changeSortOrder('day_asc')}>朝→夜</button>
-                <button className={sortOrder === 'asc' ? 'active' : ''} onClick={() => changeSortOrder('asc')}>古→新</button>
+                <button className={sortOrder === 'desc' ? 'active' : ''} onClick={() => changeSortOrder('desc')}>{copy.newestFirst}</button>
+                <button className={sortOrder === 'day_asc' ? 'active' : ''} onClick={() => changeSortOrder('day_asc')}>{copy.morningToNight}</button>
+                <button className={sortOrder === 'asc' ? 'active' : ''} onClick={() => changeSortOrder('asc')}>{copy.oldestFirst}</button>
               </div>
             </div>
             <div className="filter-row">
-              <span className="filter-label">表示するポスト：</span>
+              <span className="filter-label">{copy.showPosts}</span>
               <div className="filter-options">
-                <button className={mediaOnly ? 'active' : ''} onClick={() => setMediaOnly((value) => !value)}>画像あり</button>
-                <button className={linkOnly ? 'active' : ''} onClick={() => setLinkOnly((value) => !value)}>リンクあり</button>
-                <button className={showReposts ? 'active' : ''} onClick={() => setShowReposts((value) => !value)}>リポスト</button>
+                <button className={mediaOnly ? 'active' : ''} onClick={() => setMediaOnly((value) => !value)}>{copy.withImages}</button>
+                <button className={linkOnly ? 'active' : ''} onClick={() => setLinkOnly((value) => !value)}>{copy.withLinks}</button>
+                <button className={showReposts ? 'active' : ''} onClick={() => setShowReposts((value) => !value)}>{copy.reposts}</button>
               </div>
             </div>
           </nav>
@@ -526,27 +538,27 @@ function App() {
           <section className="timeline">
             <div className="summary">
               <strong>{currentLabel}</strong>
-              <span>{loading ? '読み込み中' : `${visibleItems.length.toLocaleString()} / ${total.toLocaleString()} items`}</span>
+              <span>{loading ? copy.loading : `${visibleItems.length.toLocaleString()} / ${total.toLocaleString()} items`}</span>
             </div>
             <div className="pager">
               {!currentDateText && selected.year && selected.month && prevMonth && nextMonth ? (
                 <>
-                  <button onClick={() => chooseMonth(prevMonth.year, prevMonth.month)}>前の月</button>
-                  <button onClick={() => chooseMonth(nextMonth.year, nextMonth.month)}>次の月</button>
+                  <button onClick={() => chooseMonth(prevMonth.year, prevMonth.month)}>{copy.previousMonth}</button>
+                  <button onClick={() => chooseMonth(nextMonth.year, nextMonth.month)}>{copy.nextMonth}</button>
                 </>
               ) : null}
             </div>
             {error && <div className="notice">{error}</div>}
-            {!loading && visibleItems.length === 0 && <div className="empty">投稿がありません。</div>}
+            {!loading && visibleItems.length === 0 && <div className="empty">{copy.noPosts}</div>}
             {groupedPosts.map(([dateText, items]) => (
               <section className="day-group" key={dateText}>
                 <h2>
-                  {dateText !== '日付なし' && !selected.day ? (
+                  {dateText !== UNDATED_KEY && !selected.day ? (
                     <button className="day-heading-link" onClick={() => chooseDay(dateText)}>
-                      {formatDayLabel(dateText)}
+                      {formatDayLabel(dateText, language)}
                     </button>
                   ) : (
-                    dateText === '日付なし' ? dateText : formatDayLabel(dateText)
+                    dateText === UNDATED_KEY ? (language === 'ja' ? '日付なし' : 'No date') : formatDayLabel(dateText, language)
                   )}
                   <span>{items.length} items</span>
                 </h2>
@@ -557,6 +569,7 @@ function App() {
                     showRecordIds={showRecordIds}
                     linkActorNames={settings.linkActorNames}
                     blurSensitiveMedia={settings.blurSensitiveMedia}
+                    language={language}
                     nowMs={timelineNowMs}
                     onHashtag={(tag) => void openTag(tag)}
                   />
@@ -565,21 +578,22 @@ function App() {
             ))}
             {currentDateText && (
               <div className="pager pager-bottom">
-                <button onClick={() => chooseDay(shiftDate(currentDateText, -1))}>前の日</button>
-                <button onClick={() => chooseDay(shiftDate(currentDateText, 1))}>次の日</button>
+                <button onClick={() => chooseDay(shiftDate(currentDateText, -1))}>{copy.previousDay}</button>
+                <button onClick={() => chooseDay(shiftDate(currentDateText, 1))}>{copy.nextDay}</button>
               </div>
             )}
             {totalPages > 1 && (
               <div className="pager page-pager">
-                <button disabled={page <= 1} onClick={() => goToPage(page - 1)}>前のページ</button>
+                <button disabled={page <= 1} onClick={() => goToPage(page - 1)}>{copy.previousPage}</button>
                 <span>{page} / {totalPages}</span>
-                <button disabled={page >= totalPages} onClick={() => goToPage(page + 1)}>次のページ</button>
+                <button disabled={page >= totalPages} onClick={() => goToPage(page + 1)}>{copy.nextPage}</button>
               </div>
             )}
           </section>
         </section>
 
         <ArchiveSidebar
+          language={language}
           selected={selected}
           selectedMonth={selectedMonth}
           grid={grid}

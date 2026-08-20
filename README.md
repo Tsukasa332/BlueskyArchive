@@ -1,67 +1,72 @@
 # BlueskyArchive
 
-自分のBluesky投稿とリポストをPostgreSQLへ保存し、Twilog風の画面で検索・閲覧する個人用アーカイブです。
+English | [日本語](README_JP.md)
 
-この公開版には、Bluesky全体を対象にした画像Viewerと公開ブロック一覧機能は含まれません。画像・動画・動画字幕のローカル保存は既定で無効です。有効にした場合も、取得対象アカウント本人が投稿へ直接添付したmediaだけを保存し、リポスト元や引用先など他人のmediaは保存しません。
+A personal archive that stores your Bluesky posts and reposts in PostgreSQL and provides a searchable, Twilog-style browsing interface.
 
-## 開発方法の開示
+This public edition does not include the image viewer for the wider Bluesky network or the public block-list feature. Local storage of images, videos, and video captions is disabled by default. When enabled, it stores only media directly attached to posts created by the archived account; it never stores media from reposted or quoted posts created by other people.
 
-プロジェクトの方針と要件はmaintainerのHAYASHI Tsukasaが指示し、このリポジトリに含まれるソースコード、テスト、ドキュメントの作成と変更はOpenAI Codexが行っています。AI生成物を人間だけが作成したものとして表示しません。
+The web interface defaults to English. Use the language button in the header, or the display-language option under Settings, to switch between English and Japanese. The selection is stored only in the current browser.
 
-OpenAIおよびOpenAI Codexは、このリポジトリの著作権者またはmaintainerとして表示しません。権利表示と利用条件は、リポジトリ直下の[`LICENSE`](LICENSE)に従います。
+## Development disclosure
 
-## 主な機能
+The project direction and requirements are specified by the maintainer, HAYASHI Tsukasa. OpenAI Codex creates and modifies the source code, tests, and documentation in this repository. AI-generated work is not represented as work produced solely by a human.
 
-- 自分の投稿、返信、引用、リポストを定期取得
-- 日・月・全文・返信先・Hashtagによる検索と絞り込み
-- 新着順、日ごとの時刻順、古い順のtimeline表示
-- `images`、`gallery`、`video`、`external`、`record`、`recordWithMedia`の解釈
-- Recent、Archives、Friends、Hashtagsのサイドバー
-- 投稿種別と曜日・時間帯別の分析
-- 削除済み投稿・リポストの照合
-- 任意の本人media保存と、ファイル・総容量・空き容量による上限
+OpenAI and OpenAI Codex are not identified as the copyright holder or maintainer. See the repository's [LICENSE](LICENSE) for copyright and licensing terms.
 
-## media保存ポリシー
+## Features
 
-`.env`の`SAVE_OWN_MEDIA`で制御します。
+- Periodic retrieval of your posts, replies, quotes, and reposts
+- Filtering and search by day, month, full text, reply recipient, and hashtag
+- Timeline ordering by newest first, chronological time within each day, or oldest first
+- Interpretation of `images`, `gallery`, `video`, `external`, `record`, and `recordWithMedia` embeds
+- Recent, Archives, Friends, and Hashtags sidebar sections
+- Post-type and day/time analytics
+- Reconciliation of deleted posts and reposts
+- Optional storage of the account owner's media, with per-file, total-size, and free-space limits
+- English and Japanese user interfaces with a browser-local language preference
 
-| 値 | 動作 |
+## Media storage policy
+
+The `SAVE_OWN_MEDIA` value in `.env` controls local media storage.
+
+| Value | Behavior |
 |---|---|
-| `false` | 画像・動画・動画字幕をローカルへ保存しない。既定値 |
-| `true` | ログインした取得対象アカウント本人の直接添付mediaと動画字幕だけを保存する |
+| `false` | Does not store images, videos, or video captions locally. This is the default. |
+| `true` | Stores only directly attached media and video captions from posts created by the authenticated archive account. |
 
-次のデータは`SAVE_OWN_MEDIA=true`でも保存しません。
+The following are never stored locally, even when `SAVE_OWN_MEDIA=true`:
 
-- リポスト元の画像・動画・字幕
-- 引用先投稿の画像・動画・字幕
-- 他人が作成した投稿のmedia
+- Images, videos, or captions from the source posts of reposts
+- Images, videos, or captions from quoted posts
+- Media from posts created by any other account
 
-投稿・リポストの本文、Actor情報、embed metadata、AT Protocolのraw JSONはmediaファイルとは別にPostgreSQLへ保存します。リポスト元のraw viewにはBluesky CDNのURLなどが含まれる場合がありますが、画像・動画本体はダウンロードしません。
+Post and repost text, actor data, embed metadata, and raw AT Protocol JSON are stored in PostgreSQL separately from media files. A raw repost view may contain Bluesky CDN URLs, but the referenced image or video files are not downloaded.
 
-設定を`true`から`false`へ変更しても、すでに保存済みのファイルやDB上のmedia情報は自動削除しません。既存環境を公開版へ移行するときは、以前保存した他人のmediaが残らないよう別途確認してください。新規環境では空のDBと`media/`から開始するのが安全です。
+Changing the setting from `true` to `false` does not delete files or media records that already exist. Audit existing data when migrating an older environment to this public edition. Starting with an empty database and empty `media/` directory is safest for a new installation.
 
-## 構成
+## Architecture
 
-- `nginx`: HTTP入口。Frontend、Backend API、本人mediaを振り分ける
-- `frontend`: React 19、TypeScript、Viteによる閲覧画面
-- `backend`: FastAPI REST API。PostgreSQLの検索・集計を担当する
-- `fetcher`: Bluesky APIから投稿・リポスト・Actorを取得する。設定時のみ本人mediaも保存する
-- `postgres`: アーカイブ、検索索引、同期状態、実行履歴を保存する
-- `db-migrate`: Alembic migrationを実行する一回実行サービス
-- `db-grants`: Backend・Fetcher用DBロールの権限を適用・検証する一回実行サービス
+- `nginx`: HTTP entry point and router for the frontend, backend API, and owner media
+- `frontend`: React 19, TypeScript, and Vite interface
+- `backend`: FastAPI REST API for PostgreSQL search and aggregation
+- `fetcher`: Retrieves posts, reposts, and actors from Bluesky; stores owner media only when enabled
+- `postgres`: Stores archive data, search indexes, sync state, and run history
+- `db-migrate`: One-shot Alembic migration service
+- `db-grants`: One-shot service that applies and verifies backend/fetcher database privileges
 
-`frontend-network`と`database-network`を分け、両方へ接続するのはBackendだけです。Backend、Fetcher、両nginxはread-only root filesystem、capability全削除、`no-new-privileges`で実行します。BackendとFetcherはUID/GID 3006の非rootユーザーです。
+The frontend and database use separate Docker networks. Only the backend joins both. The backend, fetcher, and both nginx containers use read-only root filesystems, drop all capabilities, and enable `no-new-privileges`. The backend and fetcher run as non-root UID/GID 3006.
 
-詳細は[`docs/architecture.md`](docs/architecture.md)を参照してください。
+See [docs/architecture.md](docs/architecture.md) for details.
 
-## 必要なもの
+## Requirements
 
-- Docker EngineとDocker Compose v2
-- Blueskyの取得対象アカウント
-- Bluesky App Password
-- 開発時のみPython 3.12、uv、Node.js、pnpm 11.7.0
+- Docker Engine and Docker Compose v2
+- The Bluesky account to archive
+- A Bluesky App Password
+- For development only: Python 3.12, uv, Node.js, and pnpm 11.7.0
 
-## 初回配置
+## First deployment
 
 ~~~bash
 git clone <repository-url> BlueskyArchive
@@ -70,7 +75,7 @@ cp .env.example .env
 chmod 600 .env
 ~~~
 
-`.env`で少なくとも次を変更します。
+At minimum, change these values in `.env`:
 
 - `BLSKY_IDENTIFIER`
 - `BLSKY_APP_PASSWORD`
@@ -78,9 +83,9 @@ chmod 600 .env
 - `BACKEND_DB_PASSWORD`
 - `FETCHER_DB_PASSWORD`
 
-3種類のDBパスワードには、それぞれ異なる十分に長いランダム値を使用してください。mediaを保存する場合だけ`SAVE_OWN_MEDIA=true`へ変更します。
+Use a different, sufficiently long random value for each database password. Set `SAVE_OWN_MEDIA=true` only if local owner-media storage is required.
 
-Fetcherが`media/`へ書き込めるよう、Linuxホストでは所有者を合わせます。
+On Linux, give the fetcher ownership of `media/`:
 
 ~~~bash
 sudo chown -R 3006:3006 media
@@ -89,7 +94,7 @@ docker compose ps -a
 docker compose logs --tail=100 db-migrate db-grants backend fetcher frontend nginx
 ~~~
 
-動作確認例:
+Example health checks:
 
 ~~~bash
 curl -fsS http://127.0.0.1:8080/ -o /dev/null
@@ -98,44 +103,44 @@ curl -fsS http://127.0.0.1:8080/api/calendar -o /dev/null
 curl -fsS 'http://127.0.0.1:8080/api/timeline?limit=1' -o /dev/null
 ~~~
 
-## 環境変数
+## Environment variables
 
-| 変数 | 既定値・用途 |
+| Variable | Default and purpose |
 |---|---|
-| `POSTGRES_DB` | `bluesky_archive`。PostgreSQLデータベース名 |
-| `POSTGRES_USER` | `bluesky`。migration用管理ロール |
-| `POSTGRES_PASSWORD` | 管理ロールのパスワード。必ず変更 |
-| `BACKEND_DB_USER` | `bluesky_backend`。Backend用ロール |
-| `BACKEND_DB_PASSWORD` | Backend用ロールのパスワード。必ず変更 |
-| `FETCHER_DB_USER` | `bluesky_fetcher`。Fetcher用ロール |
-| `FETCHER_DB_PASSWORD` | Fetcher用ロールのパスワード。必ず変更 |
-| `BLSKY_IDENTIFIER` | 取得対象Blueskyアカウント |
-| `BLSKY_APP_PASSWORD` | Fetcherが使用するBluesky App Password |
-| `SAVE_OWN_MEDIA` | `false`。`true`の場合だけ本人の直接添付mediaを保存 |
-| `APP_TIMEZONE` | `Asia/Tokyo`。日付境界とカレンダー集計に使用 |
-| `MEDIA_MIN_FREE_BYTES` | `5368709120`。保存後に確保する空き容量5 GiB |
-| `MEDIA_MAX_FILE_BYTES` | `157286400`。1ファイル上限150 MiB |
-| `MEDIA_MAX_TOTAL_BYTES` | `53687091200`。media全体上限50 GiB |
-| `MEDIA_TOTAL_SCAN_INTERVAL_SECONDS` | `300`。media全体容量の再集計間隔 |
-| `FETCH_INTERVAL_SECONDS` | `900`。通常同期間隔 |
-| `FETCH_PAGE_LIMIT` | `100`。Bluesky APIの1ページ取得件数 |
-| `FULL_RECONCILE_INTERVAL_SECONDS` | `86400`。CIDと削除状態を全照合する間隔 |
-| `ERROR_BACKOFF_SECONDS` | `60`。同期失敗後の再試行待機時間 |
-| `HTTP_PORT` | `8080`。ホストで公開するHTTPポート |
+| `POSTGRES_DB` | `bluesky_archive`: PostgreSQL database name |
+| `POSTGRES_USER` | `bluesky`: administrative migration role |
+| `POSTGRES_PASSWORD` | Administrative role password; always change it |
+| `BACKEND_DB_USER` | `bluesky_backend`: backend role |
+| `BACKEND_DB_PASSWORD` | Backend role password; always change it |
+| `FETCHER_DB_USER` | `bluesky_fetcher`: fetcher role |
+| `FETCHER_DB_PASSWORD` | Fetcher role password; always change it |
+| `BLSKY_IDENTIFIER` | Bluesky account to archive |
+| `BLSKY_APP_PASSWORD` | Bluesky App Password used by the fetcher |
+| `SAVE_OWN_MEDIA` | `false`; stores directly attached owner media only when `true` |
+| `APP_TIMEZONE` | `Asia/Tokyo`; date boundaries and calendar aggregation |
+| `MEDIA_MIN_FREE_BYTES` | `5368709120`; preserve 5 GiB of free space after a download |
+| `MEDIA_MAX_FILE_BYTES` | `157286400`; 150 MiB per-file limit |
+| `MEDIA_MAX_TOTAL_BYTES` | `53687091200`; 50 GiB total media limit |
+| `MEDIA_TOTAL_SCAN_INTERVAL_SECONDS` | `300`; interval for recalculating total media size |
+| `FETCH_INTERVAL_SECONDS` | `900`; normal sync interval |
+| `FETCH_PAGE_LIMIT` | `100`; records per Bluesky API page |
+| `FULL_RECONCILE_INTERVAL_SECONDS` | `86400`; full CID/deletion reconciliation interval |
+| `ERROR_BACKOFF_SECONDS` | `60`; retry delay after a failed sync |
+| `HTTP_PORT` | `8080`; host HTTP port |
 
-`MEDIA_ROOT`はコンテナ内の`/app/media`に固定しています。1ファイル上限、総容量、空き容量のいずれかに抵触したmediaは保存せず、同期を失敗させます。
+`MEDIA_ROOT` is fixed to `/app/media` inside the containers. If a download would exceed the per-file limit, total-size limit, or minimum-free-space requirement, the media is not stored and the sync fails.
 
-## セキュリティ上の注意
+## Security notes
 
-- `.env`にはBluesky App PasswordとDBパスワードが入るため、Gitへ追加しないでください。
-- Composeは既定で`0.0.0.0:8080`へ公開します。認証機能はありません。インターネットへ直接公開せず、Firewall、VPN、認証付きリバースプロキシなどで閲覧者を制限してください。
-- 投稿本文、raw JSON、DB dump、本人mediaも個人情報です。公開GitHubリポジトリへ追加しないでください。
-- FastAPIの`/docs`、`/redoc`、`/openapi.json`は無効です。
-- `docker compose down -v`はPostgreSQL volumeを削除します。通常更新では実行しないでください。
+- `.env` contains the Bluesky App Password and database passwords. Never commit it.
+- Compose publishes `0.0.0.0:8080` by default. The application has no authentication. Do not expose it directly to the Internet; restrict access with a firewall, VPN, or authenticated reverse proxy.
+- Post text, raw JSON, database dumps, and owner media are personal data. Do not add them to a public repository.
+- FastAPI's `/docs`, `/redoc`, and `/openapi.json` endpoints are disabled.
+- `docker compose down -v` deletes the PostgreSQL volume. Do not use it for routine updates.
 
-## 開発
+## Development
 
-BackendとFetcherはルートの非package型uvプロジェクトと`uv.lock`を共有します。両方のtop-level package名が`app`なので、同じpytest processで一括収集しません。
+The backend and fetcher share the root non-package uv project and `uv.lock`. Both top-level packages are named `app`, so collect their tests in separate pytest processes.
 
 ~~~powershell
 uv sync --locked
@@ -151,7 +156,7 @@ pnpm install --frozen-lockfile
 pnpm run build
 ~~~
 
-変更後は`git diff --check`と`docker compose config`も確認してください。依存解決には`uv.lock`と`frontend/pnpm-lock.yaml`だけを使用し、`requirements.txt`や`package-lock.json`を追加しないでください。
+After changes, also run `git diff --check` and `docker compose config`. Use only `uv.lock` and `frontend/pnpm-lock.yaml` for dependency resolution; do not add `requirements.txt` or `package-lock.json`.
 
 ## API
 
@@ -169,40 +174,40 @@ pnpm run build
 - `GET /api/sync`
 - `POST /api/sync`
 
-## リポスト元の修復
+## Repairing repost source views
 
-保存済みリポストの元投稿viewだけを再取得する場合は、リポストURIまたは元投稿URIを指定します。公開版では元投稿の画像・動画を保存しません。
+To refresh only the source-post view for a stored repost, provide either the repost URI or the source-post URI. The public edition never stores source-post images or videos.
 
 ~~~bash
 docker compose exec fetcher python -m app.repair_reposts \
   at://did:plc:example/app.bsky.feed.post/example
 ~~~
 
-## バックアップ
+## Backup
 
-完全な復元には次が必要です。
+A complete restoration requires:
 
-- PostgreSQL volumeまたはDB dump
-- `SAVE_OWN_MEDIA=true`で運用する場合は`media/`
+- The PostgreSQL volume or a database dump
+- `media/` when operating with `SAVE_OWN_MEDIA=true`
 - `.env`
-- 使用していたGit commit
+- The Git commit used by the deployment
 
-バックアップにも投稿内容、認証情報、本人mediaが含まれます。Git管理や公開対象に含めないでください。
+Backups also contain post content, credentials, and possibly owner media. Do not commit or publish them.
 
-## Gitへ追加しないもの
+## Files that must not be committed
 
-- `.env`、`.venv/`、`.pnpm-store/`、`node_modules/`
-- Python cache、pytest cache、`frontend/dist/`
-- `media/`内の実ファイル
-- PostgreSQLデータ、dump、backup、`outputs/`
-- パスワード、App Password、SSH秘密鍵
+- `.env`, `.venv/`, `.pnpm-store/`, `node_modules/`
+- Python and pytest caches, `frontend/dist/`
+- Real files under `media/`
+- PostgreSQL data, dumps, backups, and `outputs/`
+- Passwords, App Passwords, and SSH private keys
 
-`media/images/.gitkeep`、`media/videos/.gitkeep`、`media/captions/.gitkeep`だけは空ディレクトリ維持のため追跡します。
+Only `media/images/.gitkeep`, `media/videos/.gitkeep`, and `media/captions/.gitkeep` are tracked to preserve empty directories.
 
 ## License
 
-このリポジトリ独自のソースコードとドキュメントは、適用可能な権利の範囲でMIT Licenseにより提供します。
+Original source code and documentation in this repository are provided under the MIT License to the extent the relevant rights apply.
 
 Copyright (c) 2026 HAYASHI Tsukasa
 
-依存ライブラリ、コンテナイメージ、外部サービス、Blueskyから取得した投稿・Actor情報・raw JSON・mediaにはMIT Licenseを適用しません。それぞれの権利者と利用条件に従ってください。全文は[`LICENSE`](LICENSE)を参照してください。
+The repository's MIT License does not cover dependency libraries, container images, external services, or post/actor/raw JSON/media data retrieved from Bluesky. Those remain subject to their respective rights holders and terms. See [LICENSE](LICENSE) for the full text.

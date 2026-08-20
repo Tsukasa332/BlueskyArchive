@@ -1,4 +1,8 @@
+import { DEFAULT_LANGUAGE, isLanguage } from './i18n';
+import type { Language } from './i18n';
+
 export type AppSettings = {
+  language: Language;
   scrollToTopOnNavigation: boolean;
   showRecordIds: boolean;
   linkActorNames: boolean;
@@ -14,6 +18,7 @@ export type AppSettings = {
 const STORAGE_KEY = 'bluesky-archive.settings.v1';
 
 export const DEFAULT_SETTINGS: AppSettings = {
+  language: DEFAULT_LANGUAGE,
   scrollToTopOnNavigation: true,
   showRecordIds: false,
   linkActorNames: false,
@@ -36,6 +41,7 @@ export function loadSettings(): AppSettings {
     if (!saved) return DEFAULT_SETTINGS;
     const value = JSON.parse(saved) as Partial<AppSettings>;
     return {
+      language: isLanguage(value.language) ? value.language : DEFAULT_SETTINGS.language,
       scrollToTopOnNavigation: booleanSetting(value.scrollToTopOnNavigation, DEFAULT_SETTINGS.scrollToTopOnNavigation),
       showRecordIds: booleanSetting(value.showRecordIds, DEFAULT_SETTINGS.showRecordIds),
       linkActorNames: booleanSetting(value.linkActorNames, DEFAULT_SETTINGS.linkActorNames),
