@@ -4,7 +4,7 @@
 
 ## Maintainerからの声明
 
-> この声明の内容だけはmaintainer本人が直接提示したものです。表記の整理と英訳はCodexが行っています。maintainerは設計と指示のみを行い、コーディング、テスト、ドキュメント作成はすべてCodexが行っています。Debian GNU/Linux 12 (bookworm) + Docker Engine 29.7.2で動作確認しています。Windows 11 + Docker Desktopでも動作すると見込んでいますが、未検証です。機能追加の要望は受け付けません。必要な変更は各自でforkして行ってください。
+> この声明の内容だけはmaintainer本人が直接提示したものです。表記の整理と英訳はCodexが行っています。maintainerは設計と指示のみを行い、コーディング、テスト、ドキュメント作成はすべてCodexが行っています。Debian GNU/Linux 12 (bookworm) + Docker Engine 29.7.2で動作確認しています。また、Windows 11 + Docker Desktopでも、アプリケーションのビルド、起動、および基本的な画面・API応答について最小限の動作確認を行っています。機能追加の要望は受け付けません。必要な変更は各自でforkして行ってください。
 
 自分のBluesky投稿とリポストをPostgreSQLへ保存し、Twilog風の画面で検索・閲覧する個人用アーカイブです。
 

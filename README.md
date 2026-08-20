@@ -4,7 +4,7 @@ English | [日本語](README_JP.md)
 
 ## Statement from the maintainer
 
-> This is the only statement in this repository whose substance was supplied directly by the maintainer; wording normalization and the English translation were done by Codex. The maintainer provides only the design and instructions. Codex performs all coding, testing, and documentation work. The application has been verified on Debian GNU/Linux 12 (bookworm) with Docker Engine 29.7.2. It is expected to work with Docker Desktop on Windows 11, but that environment has not been verified. Feature requests are not accepted. Fork the repository and make any additional changes in your own fork.
+> This is the only statement in this repository whose substance was supplied directly by the maintainer; wording normalization and the English translation were done by Codex. The maintainer provides only the design and instructions. Codex performs all coding, testing, and documentation work. The application has been verified on Debian GNU/Linux 12 (bookworm) with Docker Engine 29.7.2. Minimal verification has also been performed on Windows 11 with Docker Desktop, covering the application build, startup, and basic web UI and API responses. Feature requests are not accepted. Fork the repository and make any additional changes in your own fork.
 
 A personal archive that stores your Bluesky posts and reposts in PostgreSQL and provides a searchable, Twilog-style browsing interface.
 
