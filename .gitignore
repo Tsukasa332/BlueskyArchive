@@ -1,0 +1,15 @@
+.env
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+frontend/node_modules/
+frontend/dist/
+.pnpm-store/
+media/images/*
+media/videos/*
+media/captions/*
+!media/images/.gitkeep
+!media/videos/.gitkeep
+!media/captions/.gitkeep
+outputs/

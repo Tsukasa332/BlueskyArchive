@@ -1,0 +1,188 @@
+name: blueskyarchive
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  postgres:
+    image: postgres:16-bookworm
+    restart: unless-stopped
+    logging: *default-logging
+    networks:
+      - database-network
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-bluesky_archive}
+      POSTGRES_USER: ${POSTGRES_USER:-bluesky}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  db-migrate:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    restart: "no"
+    logging: *default-logging
+    networks:
+      - database-network
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-bluesky}:${POSTGRES_PASSWORD:-change_me}@postgres:5432/${POSTGRES_DB:-bluesky_archive}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["alembic", "upgrade", "head"]
+
+  db-grants:
+    image: postgres:16-bookworm
+    restart: "no"
+    logging: *default-logging
+    networks:
+      - database-network
+    environment:
+      PGHOST: postgres
+      PGDATABASE: ${POSTGRES_DB:-bluesky_archive}
+      PGUSER: ${POSTGRES_USER:-bluesky}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-change_me}
+      POSTGRES_USER: ${POSTGRES_USER:-bluesky}
+      BACKEND_DB_USER: ${BACKEND_DB_USER:-bluesky_backend}
+      BACKEND_DB_PASSWORD: ${BACKEND_DB_PASSWORD:-change_me_backend}
+      FETCHER_DB_USER: ${FETCHER_DB_USER:-bluesky_fetcher}
+      FETCHER_DB_PASSWORD: ${FETCHER_DB_PASSWORD:-change_me_fetcher}
+    volumes:
+      - ./postgres/grant_roles.sql:/grant_roles.sql:ro
+    depends_on:
+      db-migrate:
+        condition: service_completed_successfully
+    command:
+      - sh
+      - -ec
+      - |
+        psql -v ON_ERROR_STOP=1 \
+          -v admin_user="$$POSTGRES_USER" \
+          -v backend_user="$$BACKEND_DB_USER" \
+          -v backend_password="$$BACKEND_DB_PASSWORD" \
+          -v fetcher_user="$$FETCHER_DB_USER" \
+          -v fetcher_password="$$FETCHER_DB_PASSWORD" \
+          -f /grant_roles.sql
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    logging: *default-logging
+    networks:
+      - frontend-network
+      - database-network
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp
+    environment:
+      DATABASE_URL: postgresql+psycopg://${BACKEND_DB_USER:-bluesky_backend}:${BACKEND_DB_PASSWORD:-change_me_backend}@postgres:5432/${POSTGRES_DB:-bluesky_archive}
+      APP_TIMEZONE: ${APP_TIMEZONE:-Asia/Tokyo}
+    depends_on:
+      db-grants:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+
+  fetcher:
+    build:
+      context: .
+      dockerfile: fetcher/Dockerfile
+    restart: unless-stopped
+    logging: *default-logging
+    networks:
+      - database-network
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp
+    environment:
+      DATABASE_URL: postgresql+psycopg://${FETCHER_DB_USER:-bluesky_fetcher}:${FETCHER_DB_PASSWORD:-change_me_fetcher}@postgres:5432/${POSTGRES_DB:-bluesky_archive}
+      BLSKY_IDENTIFIER: ${BLSKY_IDENTIFIER}
+      BLSKY_APP_PASSWORD: ${BLSKY_APP_PASSWORD}
+      SAVE_OWN_MEDIA: ${SAVE_OWN_MEDIA:-false}
+      MEDIA_ROOT: /app/media
+      MEDIA_MIN_FREE_BYTES: ${MEDIA_MIN_FREE_BYTES:-5368709120}
+      MEDIA_MAX_FILE_BYTES: ${MEDIA_MAX_FILE_BYTES:-157286400}
+      MEDIA_MAX_TOTAL_BYTES: ${MEDIA_MAX_TOTAL_BYTES:-53687091200}
+      MEDIA_TOTAL_SCAN_INTERVAL_SECONDS: ${MEDIA_TOTAL_SCAN_INTERVAL_SECONDS:-300}
+      FETCH_INTERVAL_SECONDS: ${FETCH_INTERVAL_SECONDS:-900}
+      FETCH_PAGE_LIMIT: ${FETCH_PAGE_LIMIT:-100}
+      FULL_RECONCILE_INTERVAL_SECONDS: ${FULL_RECONCILE_INTERVAL_SECONDS:-86400}
+      ERROR_BACKOFF_SECONDS: ${ERROR_BACKOFF_SECONDS:-60}
+    volumes:
+      - ./media:/app/media
+    depends_on:
+      db-grants:
+        condition: service_completed_successfully
+
+  frontend:
+    build:
+      context: ./frontend
+    restart: unless-stopped
+    logging: *default-logging
+    networks:
+      - frontend-network
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  nginx:
+    image: nginxinc/nginx-unprivileged:1.30.4-trixie
+    restart: unless-stopped
+    logging: *default-logging
+    networks:
+      - frontend-network
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp
+    ports:
+      - "0.0.0.0:${HTTP_PORT:-8080}:8080"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./media:/var/www/media:ro
+    depends_on:
+      frontend:
+        condition: service_started
+      backend:
+        condition: service_started
+
+volumes:
+  postgres-data:
+    name: blueskyarchive-postgres-data
+
+networks:
+  frontend-network:
+  database-network:

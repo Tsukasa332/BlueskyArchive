@@ -1,0 +1,15 @@
+.git
+.env
+__pycache__
+.pytest_cache
+.venv
+backend/tests
+fetcher/tests
+node_modules
+.pnpm-store
+media/images/*
+media/videos/*
+media/captions/*
+!media/images/.gitkeep
+!media/videos/.gitkeep
+!media/captions/.gitkeep
