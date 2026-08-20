@@ -1158,16 +1158,19 @@ main {
   .top-actions {
     width: 100%;
     align-items: stretch;
+    flex-wrap: wrap;
     margin-top: 8px;
   }
 
   .top-actions .top-search {
-    flex: 1 1 auto;
+    order: 2;
+    flex: 1 1 calc(100% - 76px);
     width: auto;
     margin-top: 0;
   }
 
   .refresh-button {
+    order: 3;
     flex: 0 0 auto;
   }
 
