@@ -50,21 +50,39 @@ class MediaDownloader:
         return f"{subdir}/{cid}", mime_type, size
 
     def save_url(self, url: str | None, cid: str, media_type: str) -> tuple[str, str | None, int]:
-        if not isinstance(url, str):
-            raise ValueError("media URL must be a string")
-        parsed = urlparse(url)
-        if parsed.netloc != "cdn.bsky.app":
-            raise ValueError("only Bluesky CDN media URLs can be saved")
+        url = self._validated_cdn_url(url)
         subdir = {"video": "videos", "caption": "captions"}.get(media_type, "images")
         directory = self.media_root / subdir
         directory.mkdir(parents=True, exist_ok=True)
         target = self._safe_target(directory, cid)
         if target.exists() and target.stat().st_size > 0:
             return f"{subdir}/{cid}", None, target.stat().st_size
-        with self.client.client.stream("GET", url) as response:
+        with self.client.client.stream("GET", url, follow_redirects=False) as response:
+            if response.is_redirect:
+                raise ValueError("Bluesky CDN media redirects are not allowed")
+            self._validated_cdn_url(str(response.url))
             response.raise_for_status()
             mime_type, size = self._stream_to_target(response, target)
         return f"{subdir}/{cid}", mime_type, size
+
+    @staticmethod
+    def _validated_cdn_url(url: str | None) -> str:
+        if not isinstance(url, str):
+            raise ValueError("media URL must be a string")
+        parsed = urlparse(url)
+        try:
+            port = parsed.port
+        except ValueError as exc:
+            raise ValueError("invalid Bluesky CDN media URL port") from exc
+        if (
+            parsed.scheme != "https"
+            or parsed.hostname != "cdn.bsky.app"
+            or parsed.username is not None
+            or parsed.password is not None
+            or port not in {None, 443}
+        ):
+            raise ValueError("only HTTPS Bluesky CDN media URLs on port 443 can be saved")
+        return url
 
     @staticmethod
     def _safe_target(directory: Path, cid: str) -> Path:

@@ -111,6 +111,7 @@ export function safeHttpUrl(value?: string | null) {
   if (!value) return undefined;
   try {
     const url = new URL(value, window.location.origin);
+    if (url.username || url.password) return undefined;
     if (url.protocol === 'http:' || url.protocol === 'https:') return url.href;
   } catch {
     return undefined;
@@ -123,7 +124,12 @@ export function safeMediaUrl(value?: string | null) {
   if (!url) return undefined;
   try {
     const parsed = new URL(url);
-    if (parsed.origin === window.location.origin || parsed.hostname === 'cdn.bsky.app') return url;
+    if (parsed.origin === window.location.origin) return url;
+    if (
+      parsed.protocol === 'https:'
+      && parsed.hostname === 'cdn.bsky.app'
+      && (!parsed.port || parsed.port === '443')
+    ) return url;
   } catch {
     return undefined;
   }

@@ -88,6 +88,8 @@ media API schemaは本人のローカルmediaだけを参照する。リポス�
 - BackendとFetcherは別DBロールを使用し、どちらにもDDL権限を与えない。
 - Backendは原則read-onlyとし、手動同期要求に必要な`sync_states`列だけ更新できる。
 - Fetcherだけが`media/`へ書き込む。
+- BlueskyのrecordとAPI応答は未信頼の入力として扱う。Frontendは文字列をReactのtext nodeとして描画し、raw HTMLとして描画しない。遷移先URLはHTTPまたはHTTPSに限定し、media URLは同一originか、標準portを使用する`https://cdn.bsky.app`だけを許可する。認証情報を含むURLは拒否する。
+- CDNから代替取得する場合は、標準portを使用する`https://cdn.bsky.app`だけを許可し、redirectには追従しない。mediaのCIDは英数字に限定し、保存先media directory内に解決されることを確認する。
 - application serviceはUID/GID 3006の非rootで実行する。
 - applicationとnginxはread-only root filesystem、capability全削除、`no-new-privileges`を使用する。
 - nginx access logにはquery stringとRefererを含めない。
@@ -113,6 +115,7 @@ media policyのtestでは少なくとも次を固定する。
 - 有効時は本人の直接添付を保存する。
 - 有効時でも別DIDのmediaをdownloadしない。
 - リポスト元viewが完全でもmediaをdownloadしない。
+- HTTPS以外、Bluesky CDN以外、認証情報を含むURL、標準外portを使用するmedia URLを拒否し、CDNのredirectに追従しない。
 
 Frontendではproduction build時のTypeScript検査に加え、英語が既定であること、日本語への切替、reload後の設定保持、document言語の更新を確認する。
 

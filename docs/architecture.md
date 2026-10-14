@@ -95,6 +95,8 @@ Language is presentation-only:
 - The backend and fetcher use separate database roles; neither receives DDL privileges.
 - The backend is read-only except for the `sync_states` columns needed to request a manual sync.
 - Only the fetcher can write to `media/`.
+- Bluesky records and API responses are untrusted input. The frontend renders their text fields as React text nodes and never as raw HTML. Navigable links accept only HTTP(S), while media links accept only same-origin URLs or HTTPS URLs on `cdn.bsky.app` using the default port; URLs containing credentials are rejected.
+- CDN fallback downloads accept only HTTPS URLs on `cdn.bsky.app` using the default port and do not follow redirects. Media CIDs must be alphanumeric and resolve inside the selected media directory.
 - Application services run as non-root UID/GID 3006.
 - Application and nginx containers use read-only root filesystems, drop all capabilities, and enable `no-new-privileges`.
 - Nginx access logs omit query strings and Referer headers.
@@ -120,6 +122,7 @@ Media-policy tests must establish at least these invariants:
 - Direct owner attachments are stored when enabled.
 - Media created by a different DID is not downloaded when enabled.
 - Repost-source media is not downloaded even when the source view is complete.
+- Non-HTTPS, non-CDN, credential-bearing, and nonstandard-port media URLs are rejected, and CDN redirects are not followed.
 
 The frontend production build includes TypeScript checking. Localization verification must cover the English default, switching to Japanese, persistence after reload, and document-language updates.
 

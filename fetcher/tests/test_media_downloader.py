@@ -1,6 +1,7 @@
 from pathlib import Path
 from types import SimpleNamespace
 from contextlib import contextmanager
+import httpx
 import pytest
 
 from app.media_downloader import MediaCapacityError, MediaDownloader, MediaFileTooLargeError, blob_cid, blob_cid_from_url
@@ -43,6 +44,41 @@ def test_media_target_resolves_to_storage_directory(tmp_path: Path):
     target = MediaDownloader._safe_target(tmp_path, "bafkreisafecid123")
     assert target.parent == tmp_path.resolve()
     assert target.name == "bafkreisafecid123"
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "http://cdn.bsky.app/image.jpg",
+        "https://cdn.bsky.app:444/image.jpg",
+        "https://user@cdn.bsky.app/image.jpg",
+        "https://cdn.bsky.app.example/image.jpg",
+    ],
+)
+def test_media_url_rejects_non_https_or_unapproved_authority(url: str):
+    with pytest.raises(ValueError, match="HTTPS Bluesky CDN"):
+        MediaDownloader._validated_cdn_url(url)
+
+
+def test_save_url_rejects_redirect_without_following_it(tmp_path: Path):
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(302, headers={"location": "http://127.0.0.1/private"})
+
+    http_client = httpx.Client(transport=httpx.MockTransport(handler), follow_redirects=True)
+    downloader = MediaDownloader(
+        str(tmp_path),
+        SimpleNamespace(client=http_client),
+        min_free_bytes=0,
+    )
+    try:
+        with pytest.raises(ValueError, match="redirects are not allowed"):
+            downloader.save_url("https://cdn.bsky.app/image.jpg", "bafkreiimage123", "image")
+    finally:
+        http_client.close()
+    assert len(requests) == 1
 
 
 def test_media_capacity_rejects_when_minimum_free_space_would_be_crossed(tmp_path: Path, monkeypatch):
