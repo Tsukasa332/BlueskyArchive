@@ -156,7 +156,7 @@ services:
         condition: service_healthy
 
   nginx:
-    image: nginxinc/nginx-unprivileged:1.30.4-trixie
+    image: nginxinc/nginx-unprivileged:1.30.5-trixie
     restart: unless-stopped
     logging: *default-logging
     networks:

@@ -83,7 +83,7 @@ def test_production_images_do_not_install_pytest():
         assert f"{service}/tests" in dockerignore
 
         dockerfile = (root / service / "Dockerfile").read_text(encoding="utf-8")
-        assert dockerfile.startswith("FROM ghcr.io/astral-sh/uv:0.12.2 AS uv")
+        assert dockerfile.startswith("FROM ghcr.io/astral-sh/uv:0.12.20 AS uv")
         assert "COPY pyproject.toml uv.lock ./" in dockerfile
         assert "uv sync --locked" in dockerfile
         assert f"--only-group {service}" in dockerfile
