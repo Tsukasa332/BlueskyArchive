@@ -35,3 +35,4 @@ dev = [
 [tool.uv]
 package = false
 default-groups = ["dev"]
+required-version = ">=0.13.4"
