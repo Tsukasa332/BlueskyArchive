@@ -68,7 +68,7 @@ OpenAIおよびOpenAI Codexは、このリポジトリの著作権者またはma
 - Docker EngineとDocker Compose v2
 - Blueskyの取得対象アカウント
 - Bluesky App Password
-- 開発時のみPython 3.12、uv、Node.js、pnpm 11.7.0
+- 開発時のみPython 3.12、uv、Node.js、pnpm 11.28.10
 
 ## 初回配置
 

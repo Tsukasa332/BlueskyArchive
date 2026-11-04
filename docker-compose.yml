@@ -156,7 +156,9 @@ services:
         condition: service_healthy
 
   nginx:
-    image: nginxinc/nginx-unprivileged:1.30.5-trixie
+    image: blueskyarchive-nginx
+    build:
+      context: ./nginx
     restart: unless-stopped
     logging: *default-logging
     networks:

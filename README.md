@@ -68,7 +68,7 @@ See [docs/architecture.md](docs/architecture.md) for details.
 - Docker Engine and Docker Compose v2
 - The Bluesky account to archive
 - A Bluesky App Password
-- For development only: Python 3.12, uv, Node.js, and pnpm 11.7.0
+- For development only: Python 3.12, uv, Node.js, and pnpm 11.28.10
 
 ## First deployment
 

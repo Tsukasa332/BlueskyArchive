@@ -1,5 +1,5 @@
 {
-  "packageManager": "pnpm@11.7.0",
+  "packageManager": "pnpm@11.28.10",
   "author": "HAYASHI Tsukasa",
   "license": "MIT",
   "scripts": {

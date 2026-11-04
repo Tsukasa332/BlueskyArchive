@@ -6,7 +6,7 @@ from app.main import app
 
 
 def test_api_documentation_routes_are_disabled():
-    paths = {route.path for route in app.routes}
+    paths = set(app.openapi()["paths"])
     assert app.docs_url is None
     assert app.redoc_url is None
     assert app.openapi_url is None
@@ -16,14 +16,14 @@ def test_api_documentation_routes_are_disabled():
 
 
 def test_health_route_remains_available():
-    assert "/api/health" in {route.path for route in app.routes}
+    assert "/api/health" in app.openapi()["paths"]
 
 
 def test_sidebar_navigation_routes_are_available():
-    paths = {route.path for route in app.routes}
+    paths = set(app.openapi()["paths"])
     assert "/api/navigation" in paths
     assert "/api/timeline/replies" in paths
 
 
 def test_analytics_route_is_available():
-    assert "/api/analytics" in {route.path for route in app.routes}
+    assert "/api/analytics" in app.openapi()["paths"]

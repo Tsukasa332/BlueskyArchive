@@ -83,7 +83,7 @@ def test_production_images_do_not_install_pytest():
         assert f"{service}/tests" in dockerignore
 
         dockerfile = (root / service / "Dockerfile").read_text(encoding="utf-8")
-        assert dockerfile.startswith("FROM ghcr.io/astral-sh/uv:0.13.4 AS uv")
+        assert dockerfile.startswith("FROM ghcr.io/astral-sh/uv:0.13.7 AS uv")
         assert "COPY pyproject.toml uv.lock ./" in dockerfile
         assert "uv sync --locked" in dockerfile
         assert f"--only-group {service}" in dockerfile
@@ -96,6 +96,24 @@ def test_production_images_do_not_install_pytest():
     assert any(
         isinstance(dependency, str) and dependency.startswith("pytest==")
         for dependency in groups["dev"]
+    )
+
+
+def test_nginx_runtime_images_include_brotli_security_update():
+    root = Path(__file__).parents[2]
+    compose = yaml.safe_load((root / "docker-compose.yml").read_text(encoding="utf-8"))
+    assert compose["services"]["nginx"]["build"]["context"] == "./nginx"
+    assert compose["services"]["nginx"]["image"] == "blueskyarchive-nginx"
+    for relative in ("frontend/Dockerfile", "nginx/Dockerfile"):
+        dockerfile = (root / relative).read_text(encoding="utf-8")
+        runtime_stage = dockerfile.rsplit("FROM nginxinc/nginx-unprivileged:", 1)[1]
+        assert runtime_stage.startswith("1.30.6-trixie")
+        assert "--only-upgrade libbrotli1" in runtime_stage
+        assert "dpkg --compare-versions" in runtime_stage
+        assert "1.1.0-2+deb13u1" in runtime_stage
+        assert "USER 101" in runtime_stage
+    assert (root / "frontend/Dockerfile").read_text(encoding="utf-8").startswith(
+        "FROM node:22.23.4-bookworm-slim AS build"
     )
 
 
