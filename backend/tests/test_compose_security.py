@@ -83,7 +83,7 @@ def test_production_images_do_not_install_pytest():
         assert f"{service}/tests" in dockerignore
 
         dockerfile = (root / service / "Dockerfile").read_text(encoding="utf-8")
-        assert dockerfile.startswith("FROM ghcr.io/astral-sh/uv:0.13.7 AS uv")
+        assert dockerfile.startswith("FROM ghcr.io/astral-sh/uv:0.13.8 AS uv")
         assert "COPY pyproject.toml uv.lock ./" in dockerfile
         assert "uv sync --locked" in dockerfile
         assert f"--only-group {service}" in dockerfile
@@ -113,7 +113,7 @@ def test_nginx_runtime_images_include_brotli_security_update():
         assert "1.1.0-2+deb13u1" in runtime_stage
         assert "USER 101" in runtime_stage
     assert (root / "frontend/Dockerfile").read_text(encoding="utf-8").startswith(
-        "FROM node:22.23.4-bookworm-slim AS build"
+        "FROM node:22.23.5-bookworm-slim AS build"
     )
 
 
