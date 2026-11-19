@@ -106,8 +106,8 @@ def test_nginx_runtime_images_include_brotli_security_update():
     assert compose["services"]["nginx"]["image"] == "blueskyarchive-nginx"
     for relative in ("frontend/Dockerfile", "nginx/Dockerfile"):
         dockerfile = (root / relative).read_text(encoding="utf-8")
-        runtime_stage = dockerfile.rsplit("FROM ghcr.io/nginx/nginx-unprivileged:", 1)[1]
-        assert runtime_stage.startswith("1.30.7-trixie")
+        runtime_stage = dockerfile.rsplit("FROM nginxinc/nginx-unprivileged:", 1)[1]
+        assert runtime_stage.startswith("1.30.6-trixie")
         assert "--only-upgrade libbrotli1" in runtime_stage
         assert "dpkg --compare-versions" in runtime_stage
         assert "1.1.0-2+deb13u1" in runtime_stage

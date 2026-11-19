@@ -1,4 +1,4 @@
-FROM ghcr.io/nginx/nginx-unprivileged:1.30.7-trixie
+FROM nginxinc/nginx-unprivileged:1.30.6-trixie
 
 USER root
 # Fail the build if the Debian Brotli security update is unavailable.
