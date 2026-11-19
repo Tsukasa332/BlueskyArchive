@@ -7,7 +7,7 @@ RUN pnpm install --frozen-lockfile
 COPY . .
 RUN pnpm run build
 
-FROM nginxinc/nginx-unprivileged:1.30.6-trixie
+FROM ghcr.io/nginx/nginx-unprivileged:1.30.7-trixie
 USER root
 # Fail the build if the Debian Brotli security update is unavailable.
 RUN apt-get update \
